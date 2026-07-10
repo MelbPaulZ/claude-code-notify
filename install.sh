@@ -1,8 +1,8 @@
 #!/bin/bash
-# Install Claude Code notify-idle hook
+# Install Claude Code notify hooks (v2: Stop + Notification)
 set -e
 
-echo "=== Claude Code Notify-Idle Installer ==="
+echo "=== Claude Code Notify Installer (v2) ==="
 
 # 1. Install terminal-notifier
 if ! command -v terminal-notifier &>/dev/null; then
@@ -12,18 +12,19 @@ else
   echo "terminal-notifier already installed."
 fi
 
-# 2. Copy script
+# 2. Copy scripts
 mkdir -p ~/.claude/scripts
-cp "$(dirname "$0")/notify-idle.sh" ~/.claude/scripts/notify-idle.sh
-chmod +x ~/.claude/scripts/notify-idle.sh
-echo "Script installed to ~/.claude/scripts/notify-idle.sh"
+for f in notify-idle.sh notify-permission.sh switch-to-session.sh; do
+  cp "$(dirname "$0")/$f" ~/.claude/scripts/"$f"
+  chmod +x ~/.claude/scripts/"$f"
+done
+echo "Scripts installed to ~/.claude/scripts/"
 
-# 3. Add hook to settings.json
+# 3. Add hooks to settings.json
 SETTINGS=~/.claude/settings.json
-HOOK_CMD="~/.claude/scripts/notify-idle.sh"
 
 if [ ! -f "$SETTINGS" ]; then
-  # Create new settings file with hook
+  # Create new settings file with both hooks
   cat > "$SETTINGS" <<'ENDJSON'
 {
   "hooks": {
@@ -38,14 +39,27 @@ if [ ! -f "$SETTINGS" ]; then
           }
         ]
       }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/scripts/notify-permission.sh",
+            "timeout": 10,
+            "async": true
+          }
+        ]
+      }
     ]
   }
 }
 ENDJSON
-  echo "Created $SETTINGS with Stop hook."
-elif ! grep -q "notify-idle.sh" "$SETTINGS"; then
+  echo "Created $SETTINGS with Stop + Notification hooks."
+elif ! grep -q "notify-idle.sh" "$SETTINGS" || ! grep -q "notify-permission.sh" "$SETTINGS"; then
   echo ""
-  echo "NOTE: Please manually add the following hook to $SETTINGS:"
+  echo "NOTE: Please merge the following hooks into $SETTINGS"
+  echo "(v1 users: also change the Notification hook command to notify-permission.sh):"
   echo ""
   cat <<'ENDJSON'
   "hooks": {
@@ -60,13 +74,25 @@ elif ! grep -q "notify-idle.sh" "$SETTINGS"; then
           }
         ]
       }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/scripts/notify-permission.sh",
+            "timeout": 10,
+            "async": true
+          }
+        ]
+      }
     ]
   }
 ENDJSON
   echo ""
   echo "Or merge it into your existing hooks configuration."
 else
-  echo "Hook already configured in $SETTINGS."
+  echo "Hooks already configured in $SETTINGS."
 fi
 
 echo ""

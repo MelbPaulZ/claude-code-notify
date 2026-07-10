@@ -1,32 +1,14 @@
 #!/bin/bash
-# Claude Code Stop hook: notification + 3s delay + switch iTerm2 tab
+# Claude Code Stop hook: task finished -> notification with click-to-jump.
+# Deliberately does NOT steal focus (the work is done, no urgency).
 exec < /dev/null
-
-# Single notification with sound
-terminal-notifier -title "Claude Code 等待你的输入" -message "3 秒后将切换到对应窗口" -sound Glass -group "claude-code-idle" >/dev/null 2>&1
-
-sleep 3
-
-# Remove notification and switch tab
-terminal-notifier -remove "claude-code-idle" >/dev/null 2>&1
-
+LOG="$HOME/.claude/scripts/notify-hook.log"
+echo "$(date '+%F %T') stop-hook fired" >> "$LOG"
+ARGS=(-title "Claude Code 任务完成" -message "等待你的下一条输入（点击跳转）" \
+  -sound Glass -group "claude-code-idle")
 if [ -n "$ITERM_SESSION_ID" ]; then
-  GUID="${ITERM_SESSION_ID#*:}"
-  osascript <<EOF 2>/dev/null
-tell application "iTerm2"
-    activate
-    repeat with w in windows
-        repeat with t in tabs of w
-            repeat with s in sessions of t
-                if unique ID of s is "$GUID" then
-                    select t
-                    return
-                end if
-            end repeat
-        end repeat
-    end repeat
-end tell
-EOF
+  ARGS+=(-execute "$HOME/.claude/scripts/switch-to-session.sh ${ITERM_SESSION_ID#*:}")
 fi
-
+terminal-notifier "${ARGS[@]}" >/dev/null 2>&1 \
+  || echo "$(date '+%F %T') notify-idle: terminal-notifier failed" >> "$LOG"
 exit 0
